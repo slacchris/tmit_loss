@@ -5,23 +5,26 @@ import argparse
 
 class TMITLoss:
     def __init__(self):
-    
+
         parser = argparse.ArgumentParser()
         parser.add_argument("bsa")
         args = parser.parse_args()
-    
-    
-        self.beampath = epics.caget(<BEAMPATH_PV>) # <--------------------------
-        self.wire = epics.caget(<MY_WIRE_PV>) # <-------------------------------
-        self.edef = args.bsa
+        self.edef = str(args.bsa)
 
-        if beampath == "SC_DIAG0":
+        self.beampath_pv = "BSA:SYS0:BeamPath"
+        self.wire_pv = "BSA:SYS0:WireSelect"
+        self.status_pv = f"BSA:SYS0:{self.edef}:LAUNCH_STS"
+
+        self.beampath = epics.caget(self.beampath_pv)
+        self.wire = epics.caget(self.wire_pv)
+
+        if self.beampath == "SC_DIAG0":
             self.rate = epics.caget("TPG:SYS0:1:DST01:RATE_RBV")
-        elif beampath == "SC_BSYD":
+        elif self.beampath == "SC_BSYD":
             self.rate = epics.caget("TPG:SYS0:1:DST02:RATE_RBV")
-        elif beampath == "SC_HXR":
+        elif self.beampath == "SC_HXR":
             self.rate = epics.caget("TPG:SYS0:1:DST03:RATE_RBV")
-        elif beampath == "SC_SXR":
+        elif self.beampath == "SC_SXR":
             self.rate = epics.caget("TPG:SYS0:1:DST04:RATE_RBV")
 
         replace_wire = self.wire.replace("WIRE", "")
@@ -36,8 +39,8 @@ class TMITLoss:
 
         htr = {}
         htr["before"] = ["BPMS:GUNB:925", "BPMS:HTR:120", "BPMS:HTR:320"]
-        htr["after"] = ["BPMS:HTR:760", "BPMS:HTR:830", "BPMS:HTR:860", 
-	                    "BPMS:HTR:960"]
+        htr["after"] = ["BPMS:HTR:760", "BPMS:HTR:830", "BPMS:HTR:860",
+                        "BPMS:HTR:960"]
 
         col1 = {}
         col1["before"] = ["BPMS:BC1B:125", "BPMS:BC1B:440", "BPMS:COL1:120", 
@@ -89,12 +92,12 @@ class TMITLoss:
         self.waveform = self.calculate_tmit_loss()
         try:
             sectors = ["HTR", "COL1", "EMIT2", "DIAG0", "LTUS", "BYP"]
-            for sector in sectors
+            for sector in sectors:
                 my_waveform_pv = f"BSA:{sector}:{self.edef}:TmitLoss"
-                epics.caput(<MY_WAVEFORM_PV>, self.waveform) # <------------------------
+                epics.caput(my_waveform_pv, self.waveform)
         except:
             error = "Error writing waveform PV"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def get_bpm_list(self):
         try:
@@ -104,7 +107,7 @@ class TMITLoss:
             self.bpm_tmit_pvs = bpm_tmit_pvs
         except:
             error = "Error getting PV names from Directory Service"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def get_bsa_counts(self):
         try:
@@ -112,7 +115,7 @@ class TMITLoss:
             self.counts = counts
         except:
             error = "Error getting BSA counts"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def get_bpm_data(self):
         try:
@@ -133,7 +136,7 @@ class TMITLoss:
             self.tmit_data = clean_tmit_dataframe
         except:
             error = "Error getting BPM data from buffer"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def iron_bpms(self):
         try:
@@ -142,7 +145,7 @@ class TMITLoss:
             self.tmit_iron = ironed_tmit
         except:
             error = "Error ironing BPMs"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def shift_bpm_data(self, sector):
         try:
@@ -153,7 +156,7 @@ class TMITLoss:
             self.tmit_ratio_shift = shifted_tmit
         except:
             error = "Error shifting BPMs"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def subtract_means(self, sector):
         try:
@@ -172,19 +175,20 @@ class TMITLoss:
             return tmit_waveform
         except:
             error = "Error subtracting TMIT means"
-            epics.caput(<MY_STATUS_REPORT>, error)
+            epics.caput(self.status_pv, error)
 
     def calculate_tmit_loss(self):
-            self.get_bpm_list()
-            self.get_bsa_counts()
-            self.get_bpm_data()
-            self.iron_bpms()
-            tmit_loss_waveforms = {}
-            for sector in self.bpms.keys():
-                self.shift_bpm_data(sector)
-                tmit_loss_waveforms[sector] = self.subtract_means(sector)
+        self.get_bpm_list()
+        self.get_bsa_counts()
+        self.get_bpm_data()
+        self.iron_bpms()
+        tmit_loss_waveforms = {}
+        for sector in self.bpms.keys():
+            self.shift_bpm_data(sector)
+            tmit_loss_waveforms[sector] = self.subtract_means(sector)
 
-            return tmit_loss_waveforms
+        return tmit_loss_waveforms
+
 
 if __name__ == "__main__":
     tl = TMITLoss()
